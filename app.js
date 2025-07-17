@@ -9,7 +9,10 @@ import {
   remove, 
   update, 
   get,
-  off
+  off,
+  query,
+  orderByChild,
+  equalTo
 } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-database.js";
 import { 
   getAuth, 
@@ -105,7 +108,10 @@ const utils = {
     setTimeout(() => element.classList.add('hidden'), 5000);
   },
   
-  validatePhone: (phone) => /^[0-9]{10,15}$/.test(phone),
+  validatePhone: (phone) => {
+    const regex = /^(010|011|012|015)\d{8}$/;
+    return regex.test(phone);
+  },
   
   clearForm: (formElements) => {
     Object.values(formElements).forEach(element => {
@@ -140,6 +146,29 @@ const utils = {
     dashboards.forEach(dashboard => {
       dashboard.style.minHeight = 'calc(var(--vh, 1vh) * 100)';
     });
+  },
+  
+  // دالة جديدة للتحقق من وجود حجز بنفس رقم الهاتف
+  checkExistingBookingByPhone: async (phone) => {
+    const providersRef = ref(database, 'serviceProviders');
+    const snapshot = await get(providersRef);
+    
+    if (!snapshot.exists()) return false;
+    
+    const providers = snapshot.val();
+    for (const providerId in providers) {
+      const provider = providers[providerId];
+      if (provider.queue) {
+        for (const bookingId in provider.queue) {
+          const booking = provider.queue[bookingId];
+          if (booking.clientPhone === phone) {
+            return true;
+          }
+        }
+      }
+    }
+    
+    return false;
   }
 };
 
@@ -179,11 +208,14 @@ async function clientLogin() {
   }
   
   if (!phone || !utils.validatePhone(phone)) {
-    utils.showError(elements.client.error, 'الرجاء إدخال رقم هاتف صحيح (10-15 رقمًا)');
+    utils.showError(elements.client.error, 'رقم الهاتف يجب أن يكون 11 رقمًا ويبدأ بـ 010، 011، 012 أو 015');
     return;
   }
   
   try {
+    // التحقق من وجود حجز سابق لهذا الرقم
+    const hasExistingBooking = await utils.checkExistingBookingByPhone(phone);
+    
     const savedData = JSON.parse(localStorage.getItem('client_data')) || {};
     const clientId = savedData.clientId || utils.generateId();
     
@@ -200,6 +232,12 @@ async function clientLogin() {
     await loadServiceProviders();
     
     await checkExistingBooking();
+    
+    if (hasExistingBooking) {
+      // إذا كان هناك حجز سابق، عرض رسالة للمستخدم
+      alert('لديك حجز سابق بالفعل، لا يمكنك حجز أكثر من موعد في نفس الوقت');
+      showCurrentBooking();
+    }
     
     if (rememberMe) {
       localStorage.setItem('client_data', JSON.stringify({ 
@@ -227,7 +265,7 @@ async function providerSignup() {
   }
   
   if (!utils.validatePhone(newPhone.value)) {
-    utils.showError(error, 'رقم الهاتف يجب أن يكون بين 10-15 رقمًا');
+    utils.showError(error, 'رقم الهاتف يجب أن يكون 11 رقمًا ويبدأ بـ 010، 011، 012 أو 015');
     return;
   }
   
@@ -468,6 +506,14 @@ function renderProvidersList() {
 // Booking management
 async function bookAppointment(providerId, providerName) {
   if (!state.currentUser) return;
+  
+  // التحقق من وجود حجز سابق لهذا الرقم
+  const hasExistingBooking = await utils.checkExistingBookingByPhone(state.currentUser.phone);
+  
+  if (hasExistingBooking) {
+    alert('لديك حجز سابق بالفعل، لا يمكنك حجز أكثر من موعد في نفس الوقت');
+    return;
+  }
   
   if (state.currentUser.booking && state.currentUser.booking.providerId !== providerId) {
     alert('لديك حجز بالفعل عند مقدم خدمة آخر، يرجى إلغاء الحجز الحالي أولاً');
