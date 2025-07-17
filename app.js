@@ -1,5 +1,3 @@
-[file name]: app.js
-[file content begin]
 // Import Firebase modules
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-app.js";
 import { 
@@ -876,4 +874,3 @@ function init() {
 
 // Start the app
 init();
-[file content end]
