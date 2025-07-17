@@ -1,3 +1,5 @@
+[file name]: app.js
+[file content begin]
 // Import Firebase modules
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-app.js";
 import { 
@@ -9,10 +11,7 @@ import {
   remove, 
   update, 
   get,
-  off,
-  query,
-  orderByChild,
-  equalTo
+  off
 } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-database.js";
 import { 
   getAuth, 
@@ -108,10 +107,7 @@ const utils = {
     setTimeout(() => element.classList.add('hidden'), 5000);
   },
   
-  validatePhone: (phone) => {
-    const regex = /^(010|011|012|015)\d{8}$/;
-    return regex.test(phone);
-  },
+  validatePhone: (phone) => /^[0-9]{11}$/.test(phone),
   
   clearForm: (formElements) => {
     Object.values(formElements).forEach(element => {
@@ -146,29 +142,6 @@ const utils = {
     dashboards.forEach(dashboard => {
       dashboard.style.minHeight = 'calc(var(--vh, 1vh) * 100)';
     });
-  },
-  
-  // دالة جديدة للتحقق من وجود حجز بنفس رقم الهاتف
-  checkExistingBookingByPhone: async (phone) => {
-    const providersRef = ref(database, 'serviceProviders');
-    const snapshot = await get(providersRef);
-    
-    if (!snapshot.exists()) return false;
-    
-    const providers = snapshot.val();
-    for (const providerId in providers) {
-      const provider = providers[providerId];
-      if (provider.queue) {
-        for (const bookingId in provider.queue) {
-          const booking = provider.queue[bookingId];
-          if (booking.clientPhone === phone) {
-            return true;
-          }
-        }
-      }
-    }
-    
-    return false;
   }
 };
 
@@ -208,14 +181,11 @@ async function clientLogin() {
   }
   
   if (!phone || !utils.validatePhone(phone)) {
-    utils.showError(elements.client.error, 'رقم الهاتف يجب أن يكون 11 رقمًا ويبدأ بـ 010، 011، 012 أو 015');
+    utils.showError(elements.client.error, 'الرجاء إدخال رقم هاتف صحيح (11 رقمًا بالضبط)');
     return;
   }
   
   try {
-    // التحقق من وجود حجز سابق لهذا الرقم
-    const hasExistingBooking = await utils.checkExistingBookingByPhone(phone);
-    
     const savedData = JSON.parse(localStorage.getItem('client_data')) || {};
     const clientId = savedData.clientId || utils.generateId();
     
@@ -232,12 +202,6 @@ async function clientLogin() {
     await loadServiceProviders();
     
     await checkExistingBooking();
-    
-    if (hasExistingBooking) {
-      // إذا كان هناك حجز سابق، عرض رسالة للمستخدم
-      alert('لديك حجز سابق بالفعل، لا يمكنك حجز أكثر من موعد في نفس الوقت');
-      showCurrentBooking();
-    }
     
     if (rememberMe) {
       localStorage.setItem('client_data', JSON.stringify({ 
@@ -265,7 +229,7 @@ async function providerSignup() {
   }
   
   if (!utils.validatePhone(newPhone.value)) {
-    utils.showError(error, 'رقم الهاتف يجب أن يكون 11 رقمًا ويبدأ بـ 010، 011، 012 أو 015');
+    utils.showError(error, 'رقم الهاتف يجب أن يكون 11 رقمًا بالضبط');
     return;
   }
   
@@ -461,6 +425,9 @@ function renderProvidersList() {
     const isTopRated = index < 3 && provider.averageRating >= 4;
     const hasBooking = state.currentUser?.booking;
     const isCurrentProvider = state.currentUser?.booking?.providerId === id;
+    const isSamePhone = provider.queue && Object.values(provider.queue).some(booking => 
+      booking.clientPhone === state.currentUser?.phone
+    );
     
     const providerCard = document.createElement('div');
     providerCard.className = `provider-card ${isTopRated ? 'top-rated' : ''}`;
@@ -491,11 +458,11 @@ function renderProvidersList() {
           <div><i class="fas fa-users"></i> عدد المنتظرين: ${queueLength}</div>
         </div>
       </div>
-      <button class="book-btn" ${provider.status === 'closed' || (hasBooking && !isCurrentProvider) ? 'disabled' : ''}" 
-              onclick="bookAppointment('${id}', '${provider.name.replace(/'/g, "\\'")}')">
-        ${hasBooking ? 
-          (isCurrentProvider ? '<i class="fas fa-calendar-check"></i> لديك حجز هنا' : '<i class="fas fa-calendar-check"></i> لديك حجز بالفعل') : 
-          (provider.status === 'open' ? '<i class="fas fa-calendar-plus"></i> احجز الآن' : '<i class="fas fa-calendar-times"></i> غير متاح')}
+      <button class="book-btn" ${isSamePhone ? 'disabled' : ''}" 
+              onclick="${isSamePhone ? '' : `bookAppointment('${id}', '${provider.name.replace(/'/g, "\\'")}')`}">
+        ${isSamePhone ? '<i class="fas fa-calendar-times"></i> لديك حجز بهذا الرقم' : 
+          (hasBooking && isCurrentProvider ? '<i class="fas fa-calendar-check"></i> لديك حجز هنا' : 
+          '<i class="fas fa-calendar-plus"></i> احجز الآن')}
       </button>
     `;
     
@@ -506,20 +473,25 @@ function renderProvidersList() {
 // Booking management
 async function bookAppointment(providerId, providerName) {
   if (!state.currentUser) return;
-  
-  // التحقق من وجود حجز سابق لهذا الرقم
-  const hasExistingBooking = await utils.checkExistingBookingByPhone(state.currentUser.phone);
-  
-  if (hasExistingBooking) {
-    alert('لديك حجز سابق بالفعل، لا يمكنك حجز أكثر من موعد في نفس الوقت');
+
+  // التحقق من وجود حجز بنفس رقم الهاتف
+  const providerRef = ref(database, `serviceProviders/${providerId}/queue`);
+  const snapshot = await get(providerRef);
+  const queue = snapshot.val() || {};
+
+  const hasBookingWithSamePhone = Object.values(queue).some(booking => 
+    booking.clientPhone === state.currentUser.phone
+  );
+
+  if (hasBookingWithSamePhone) {
+    renderProvidersList();
     return;
   }
-  
+
   if (state.currentUser.booking && state.currentUser.booking.providerId !== providerId) {
-    alert('لديك حجز بالفعل عند مقدم خدمة آخر، يرجى إلغاء الحجز الحالي أولاً');
     return;
   }
-  
+
   try {
     const newBookingRef = push(ref(database, `serviceProviders/${providerId}/queue`));
     await set(newBookingRef, {
@@ -544,10 +516,7 @@ async function bookAppointment(providerId, providerName) {
     
     showCurrentBooking();
     renderProvidersList();
-    
-    alert(`تم الحجز بنجاح مع مقدم الخدمة ${providerName}`);
   } catch (error) {
-    alert('حدث خطأ أثناء الحجز: ' + error.message);
     console.error('Booking error:', error);
   }
 }
@@ -565,7 +534,7 @@ async function checkExistingBooking() {
   for (const [providerId, provider] of Object.entries(state.serviceProviders)) {
     if (provider.queue) {
       for (const [bookingId, booking] of Object.entries(provider.queue)) {
-        if (booking.clientId === state.currentUser.id) {
+        if (booking.clientId === state.currentUser.id || booking.clientPhone === state.currentUser.phone) {
           const bookingData = {
             providerId,
             providerName: provider.name,
@@ -636,10 +605,7 @@ async function cancelBooking() {
     
     elements.client.bookingContainer.classList.add('hidden');
     renderProvidersList();
-    
-    alert('تم إلغاء الحجز بنجاح');
   } catch (error) {
-    alert('حدث خطأ أثناء إلغاء الحجز: ' + error.message);
     console.error('Cancel booking error:', error);
   }
 }
@@ -678,7 +644,6 @@ async function submitRating() {
     await updateProviderRating(state.currentUser.booking.providerId);
     
     elements.rating.container.classList.add('hidden');
-    alert('شكراً لتقييمك!');
     
     elements.rating.stars.forEach(star => star.classList.remove('active'));
     elements.rating.comment.value = '';
@@ -686,7 +651,6 @@ async function submitRating() {
     
   } catch (error) {
     console.error('Rating submission error:', error);
-    alert('حدث خطأ أثناء إرسال التقييم');
   }
 }
 
@@ -776,10 +740,7 @@ async function completeClient(providerId, bookingId) {
     if (state.currentUser?.booking?.bookingId === bookingId) {
       showRatingForm();
     }
-    
-    alert('تم إنهاء خدمة العميل بنجاح');
   } catch (error) {
-    alert('حدث خطأ أثناء إنهاء الخدمة: ' + error.message);
     console.error('Complete client error:', error);
   }
 }
@@ -862,7 +823,6 @@ async function logout() {
     
     showScreen('roleSelection');
   } catch (error) {
-    alert('حدث خطأ أثناء تسجيل الخروج: ' + error.message);
     console.error('Logout error:', error);
   }
 }
@@ -916,3 +876,4 @@ function init() {
 
 // Start the app
 init();
+[file content end]
