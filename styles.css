@@ -1,3 +1,4 @@
+/* نظام التصميم المتكامل والمحترف */
 :root {
   /* نظام الألوان المعدل */
   --primary-500: #4f46e5;
@@ -291,11 +292,6 @@ p {
 .role-buttons {
   width: 100%;
   max-width: 400px;
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem; /* زيادة المسافة بين الأزرار */
-  align-items: center;
-  margin-top: 1rem;
 }
 
 .role-btn {
@@ -303,6 +299,7 @@ p {
   max-width: 320px;
   height: var(--button-height);
   padding: 0 1.5rem;
+  margin: 0.75rem 0;
   border: none;
   border-radius: var(--radius-lg);
   font-size: clamp(1rem, 3.5vw, 1.25rem);
@@ -623,6 +620,11 @@ p {
   position: relative;
   overflow: hidden;
   box-shadow: var(--shadow-sm);
+  margin-bottom: 0.75rem; /* إضافة مسافة بين الأزرار */
+}
+
+.btn:last-child {
+  margin-bottom: 0; /* إزالة الهامش من الزر الأخير */
 }
 
 .btn::before {
@@ -700,6 +702,7 @@ p {
   display: flex;
   align-items: center;
   justify-content: center;
+  margin-bottom: 0; /* التأكد من عدم وجود هامش للزر الأيقوني */
 }
 
 /* لوحات التحكم المحسنة */
@@ -1244,56 +1247,3 @@ input:checked + .slider:before {
 
 .skip-link:focus {
   top: 0;
-}
-
-/* تأثيرات للطباعة */
-@media print {
-  .header, .search-filters, .btn, .site-footer, .role-selection {
-    display: none !important;
-  }
-  
-  .provider-card, .queue-item {
-    page-break-inside: avoid;
-    break-inside: avoid;
-    box-shadow: none !important;
-    border: 1px solid #ddd !important;
-  }
-  
-  body {
-    background-color: white !important;
-    color: black !important;
-    font-size: 12pt;
-    padding: 0.5in;
-  }
-  
-  a::after {
-    content: " (" attr(href) ")";
-    font-size: 0.8em;
-    font-weight: normal;
-  }
-  
-  .no-print {
-    display: none !important;
-  }
-}
-
-/* تحسينات الوصول */
-[aria-hidden="true"] {
-  pointer-events: none;
-}
-
-:focus {
-  outline: 2px solid var(--primary-500);
-  outline-offset: 2px;
-}
-
-/* أنماط للنجوم التفاعلية */
-.stars i {
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.stars i:focus {
-  outline: 2px solid var(--primary-500);
-  border-radius: 50%;
-}
