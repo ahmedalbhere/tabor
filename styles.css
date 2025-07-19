@@ -1,4 +1,3 @@
-/* نظام التصميم المتكامل والمحترف */
 :root {
   /* نظام الألوان المعدل */
   --primary-500: #4f46e5;
@@ -292,6 +291,11 @@ p {
 .role-buttons {
   width: 100%;
   max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem; /* زيادة المسافة بين الأزرار */
+  align-items: center;
+  margin-top: 1rem;
 }
 
 .role-btn {
@@ -299,7 +303,6 @@ p {
   max-width: 320px;
   height: var(--button-height);
   padding: 0 1.5rem;
-  margin: 0.75rem 0;
   border: none;
   border-radius: var(--radius-lg);
   font-size: clamp(1rem, 3.5vw, 1.25rem);
