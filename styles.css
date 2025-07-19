@@ -620,11 +620,6 @@ p {
   position: relative;
   overflow: hidden;
   box-shadow: var(--shadow-sm);
-  margin-bottom: 0.75rem; /* إضافة مسافة بين الأزرار */
-}
-
-.btn:last-child {
-  margin-bottom: 0; /* إزالة الهامش من الزر الأخير */
 }
 
 .btn::before {
@@ -702,7 +697,15 @@ p {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 0; /* التأكد من عدم وجود هامش للزر الأيقوني */
+}
+
+/* إضافة مسافة بين الأزرار في نماذج الدخول */
+.login-box .btn-block {
+  margin-bottom: 1rem; /* مسافة 16px بين الأزرار */
+}
+
+.login-box .btn-block:last-child {
+  margin-bottom: 0; /* لا توجد مسافة أسفل الزر الأخير */
 }
 
 /* لوحات التحكم المحسنة */
@@ -1247,3 +1250,56 @@ input:checked + .slider:before {
 
 .skip-link:focus {
   top: 0;
+}
+
+/* تأثيرات للطباعة */
+@media print {
+  .header, .search-filters, .btn, .site-footer, .role-selection {
+    display: none !important;
+  }
+  
+  .provider-card, .queue-item {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    box-shadow: none !important;
+    border: 1px solid #ddd !important;
+  }
+  
+  body {
+    background-color: white !important;
+    color: black !important;
+    font-size: 12pt;
+    padding: 0.5in;
+  }
+  
+  a::after {
+    content: " (" attr(href) ")";
+    font-size: 0.8em;
+    font-weight: normal;
+  }
+  
+  .no-print {
+    display: none !important;
+  }
+}
+
+/* تحسينات الوصول */
+[aria-hidden="true"] {
+  pointer-events: none;
+}
+
+:focus {
+  outline: 2px solid var(--primary-500);
+  outline-offset: 2px;
+}
+
+/* أنماط للنجوم التفاعلية */
+.stars i {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.stars i:focus {
+  outline: 2px solid var(--primary-500);
+  border-radius: 50%;
+}
