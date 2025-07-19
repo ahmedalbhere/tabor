@@ -2,91 +2,44 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>طابور أونلاين - نظام حجز مواعيد الحلاقين ومقدمي الخدمات</title>
-    <meta name="description" content="نظام حجز مواعيد إلكتروني يساعدك في حجز دورك عند الحلاقين ومقدمي الخدمات بكل سهولة. وفر وقتك وتجنب الانتظار الطويل.">
-    <meta name="keywords" content="حجز مواعيد, حلاق, صالون حلاقة, طابور إلكتروني, حجز حلاق, مواعيد حلاقة, نظام حجز, مقدمي خدمات">
-    <meta name="author" content="طابور أونلاين">
+    <meta name="description" content="طابور أونلاين هو نظام حجز مواعيد إلكتروني يساعدك في تنظيم دورك عند الحلاقين ومقدمي الخدمات بكل سهولة.">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="google-site-verification" content="XIcTZUC33lJCv30PX7pLx9a8OIbagmwmbTouWh0kw3Y" />
-    
-    <!-- Open Graph / Social Media Meta Tags -->
-    <meta property="og:title" content="طابور أونلاين - نظام حجز مواعيد الحلاقين ومقدمي الخدمات">
-    <meta property="og:description" content="نظام حجز مواعيد إلكتروني يساعدك في حجز دورك عند الحلاقين ومقدمي الخدمات بكل سهولة.">
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://www.taboor-online.com">
-    <meta property="og:image" content="https://www.taboor-online.com/images/og-image.jpg">
-    <meta property="og:locale" content="ar_SA">
-    
-    <!-- Twitter Card Meta Tags -->
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="طابور أونلاين - نظام حجز مواعيد الحلاقين ومقدمي الخدمات">
-    <meta name="twitter:description" content="نظام حجز مواعيد إلكتروني يساعدك في حجز دورك عند الحلاقين ومقدمي الخدمات بكل سهولة.">
-    <meta name="twitter:image" content="https://www.taboor-online.com/images/twitter-image.jpg">
-    
+    <title>طابور اونلاين</title>
     <link rel="icon" href="favicon.ico" type="image/x-icon">
     <link rel="icon" type="image/png" sizes="32x32" href="favicon.png">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
-    
-    <!-- تحميل الخطوط بشكل غير متزامن -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
-    
-    <!-- تحميل Font Awesome بشكل غير متزامن -->
-    <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
-    
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="styles.css">
-    
-    <!-- بيانات منظمة لتحسين SEO -->
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "WebApplication",
-      "name": "طابور أونلاين",
-      "description": "نظام حجز مواعيد إلكتروني يساعدك في حجز دورك عند الحلاقين ومقدمي الخدمات بكل سهولة.",
-      "url": "https://www.taboor-online.com",
-      "applicationCategory": "BusinessApplication",
-      "operatingSystem": "Web",
-      "offers": {
-        "@type": "Offer",
-        "price": "0",
-        "priceCurrency": "SAR"
-      }
-    }
-    </script>
 </head>
 <body>
-    <a href="#main-content" class="skip-link">تخطي إلى المحتوى الرئيسي</a>
-
     <!-- صفحة اختيار الدور -->
-    <header role="banner" id="roleSelection" class="container role-selection">
+    <div id="roleSelection" class="container role-selection">
         <h1>طابور اونلاين</h1>
-        <p class="tagline">نظام حجز المواعيد الإلكتروني الأول للحلاقين ومقدمي الخدمات</p>
+        <p class="tagline">نظام حجز المواعيد الإلكتروني لمقدمي الخدمات</p>
         <div class="role-buttons">
-            <button class="role-btn client-btn" onclick="showScreen('clientLogin')" aria-label="تسجيل الدخول كزبون">
-                <i class="fas fa-user" aria-hidden="true"></i> زبون
+            <button class="role-btn client-btn" onclick="showScreen('clientLogin')">
+                <i class="fas fa-user"></i> زبون
             </button>
-            <button class="role-btn barber-btn" onclick="showScreen('providerLogin')" aria-label="تسجيل الدخول كمقدم خدمة">
-                <i class="fas fa-cut" aria-hidden="true"></i> مقدم الخدمة
+            <button class="role-btn barber-btn" onclick="showScreen('providerLogin')">
+                <i class="fas fa-cut"></i> مقدم الخدمة
             </button>
         </div>
-    </header>
+    </div>
 
     <!-- تسجيل دخول الزبون -->
-    <main role="main" id="clientLogin" class="container login-container hidden">
+    <div id="clientLogin" class="container login-container hidden">
         <div class="login-box">
-            <h2><i class="fas fa-user" aria-hidden="true"></i> تسجيل دخول الزبون</h2>
-            <div id="clientError" class="error-message hidden" role="alert"></div>
+            <h2><i class="fas fa-user"></i> تسجيل دخول الزبون</h2>
+            <div id="clientError" class="error hidden"></div>
             <div class="form-group">
                 <label for="clientName"><i class="fas fa-signature"></i> الاسم الكامل</label>
-                <input type="text" id="clientName" class="form-input" placeholder="أدخل اسمك الكامل" required aria-describedby="nameHelp">
-                <span id="nameHelp" class="visually-hidden">الرجاء إدخال اسمك الكامل كما تريد ظهوره</span>
+                <input type="text" id="clientName" class="form-input" placeholder="أدخل اسمك الكامل" required>
             </div>
             <div class="form-group">
                 <label for="clientPhone"><i class="fas fa-phone"></i> رقم الهاتف</label>
-                <input type="tel" id="clientPhone" class="form-input" placeholder="أدخل رقم الهاتف" required aria-describedby="phoneHelp">
-                <span id="phoneHelp" class="visually-hidden">الرجاء إدخال رقم هاتفك للتواصل معك</span>
+                <input type="tel" id="clientPhone" class="form-input" placeholder="أدخل رقم الهاتف" required>
             </div>
             <div class="remember-me">
                 <input type="checkbox" id="rememberMeClient">
@@ -99,13 +52,13 @@
                 <i class="fas fa-arrow-right"></i> رجوع
             </button>
         </div>
-    </main>
+    </div>
 
     <!-- تسجيل دخول وإنشاء حساب مقدم الخدمة -->
     <div id="providerLogin" class="container login-container hidden">
         <div class="login-box">
             <h2 id="providerFormTitle"><i class="fas fa-cut"></i> تسجيل الدخول لمقدمي الخدمة</h2>
-            <div id="providerError" class="error-message hidden" role="alert"></div>
+            <div id="providerError" class="error hidden"></div>
             
             <div id="providerLoginForm">
                 <div class="form-group">
@@ -180,24 +133,47 @@
             <div class="shop-status">
                 <span class="status-text" id="statusText">مفتوح</span>
                 <label class="status-toggle">
-                    <input type="checkbox" id="statusToggle" checked aria-label="حالة المحل">
+                    <input type="checkbox" id="statusToggle" checked>
                     <span class="slider"></span>
                 </label>
             </div>
             <div class="user-info">
                 <div class="user-avatar" id="providerAvatar">م</div>
-                <button class="btn btn-icon btn-danger" onclick="logout()" aria-label="تسجيل الخروج">
+                <button class="btn btn-icon btn-danger" onclick="logout()">
                     <i class="fas fa-sign-out-alt"></i>
                 </button>
             </div>
         </div>
-        <div class="content" id="main-content">
+        <div class="content">
             <h2 class="section-title">
                 <i class="fas fa-users"></i> قائمة الانتظار
             </h2>
             <ul class="queue-list" id="providerQueue">
                 <li>جارٍ تحميل قائمة الانتظار...</li>
             </ul>
+
+            <!-- قسم تغيير كلمة المرور -->
+            <div class="change-password-section">
+                <h2 class="section-title">
+                    <i class="fas fa-key"></i> تغيير كلمة المرور
+                </h2>
+                <div id="passwordChangeError" class="error hidden"></div>
+                <div class="form-group">
+                    <label for="currentPassword"><i class="fas fa-lock"></i> كلمة المرور الحالية</label>
+                    <input type="password" id="currentPassword" class="form-input" placeholder="أدخل كلمة المرور الحالية">
+                </div>
+                <div class="form-group">
+                    <label for="newPassword"><i class="fas fa-lock"></i> كلمة المرور الجديدة</label>
+                    <input type="password" id="newPassword" class="form-input" placeholder="أدخل كلمة المرور الجديدة (6 أحرف على الأقل)">
+                </div>
+                <div class="form-group">
+                    <label for="confirmNewPassword"><i class="fas fa-lock"></i> تأكيد كلمة المرور الجديدة</label>
+                    <input type="password" id="confirmNewPassword" class="form-input" placeholder="أعد إدخال كلمة المرور الجديدة">
+                </div>
+                <button class="btn btn-primary btn-block" onclick="changeProviderPassword()">
+                    <i class="fas fa-save"></i> حفظ التغييرات
+                </button>
+            </div>
         </div>
     </div>
 
@@ -209,12 +185,12 @@
             </div>
             <div class="user-info">
                 <div class="user-avatar" id="clientAvatar">ز</div>
-                <button class="btn btn-icon btn-danger" onclick="logout()" aria-label="تسجيل الخروج">
+                <button class="btn btn-icon btn-danger" onclick="logout()">
                     <i class="fas fa-sign-out-alt"></i>
                 </button>
             </div>
         </div>
-        <div class="content" id="main-content">
+        <div class="content">
             <div id="currentBookingContainer" class="current-booking hidden">
                 <h3 class="booking-title">
                     <i class="fas fa-calendar-check"></i> حجزك الحالي
@@ -238,14 +214,14 @@
             
             <div id="ratingContainer" class="rating-container hidden">
                 <h4 class="rating-title">قيم تجربتك مع مقدم الخدمة</h4>
-                <div class="stars" role="group" aria-label="تقييم الخدمة">
-                    <i class="fas fa-star" data-rating="1" role="button" aria-label="نجمة واحدة"></i>
-                    <i class="fas fa-star" data-rating="2" role="button" aria-label="نجمتين"></i>
-                    <i class="fas fa-star" data-rating="3" role="button" aria-label="ثلاث نجوم"></i>
-                    <i class="fas fa-star" data-rating="4" role="button" aria-label="أربع نجوم"></i>
-                    <i class="fas fa-star" data-rating="5" role="button" aria-label="خمس نجوم"></i>
+                <div class="stars">
+                    <i class="fas fa-star" data-rating="1"></i>
+                    <i class="fas fa-star" data-rating="2"></i>
+                    <i class="fas fa-star" data-rating="3"></i>
+                    <i class="fas fa-star" data-rating="4"></i>
+                    <i class="fas fa-star" data-rating="5"></i>
                 </div>
-                <textarea id="ratingComment" class="rating-comment" placeholder="اكتب تعليقك (اختياري)" aria-label="تعليق التقييم"></textarea>
+                <textarea id="ratingComment" class="rating-comment" placeholder="اكتب تعليقك (اختياري)"></textarea>
                 <button class="btn btn-primary btn-block" onclick="submitRating()">
                     <i class="fas fa-check"></i> إرسال التقييم
                 </button>
@@ -253,14 +229,14 @@
             
             <div class="search-filters">
                 <div class="search-container">
-                    <input type="text" id="citySearch" class="form-input" placeholder="ابحث حسب المدينة" aria-label="بحث حسب المدينة">
-                    <button class="search-btn" onclick="filterProviders()" aria-label="بحث">
+                    <input type="text" id="citySearch" class="form-input" placeholder="ابحث حسب المدينة">
+                    <button class="search-btn" onclick="filterProviders()">
                         <i class="fas fa-search"></i>
                     </button>
                 </div>
                 <div class="search-container">
-                    <input type="text" id="serviceTypeSearch" class="form-input" placeholder="ابحث حسب نوع الخدمة" aria-label="بحث حسب نوع الخدمة">
-                    <button class="search-btn" onclick="filterProviders()" aria-label="بحث">
+                    <input type="text" id="serviceTypeSearch" class="form-input" placeholder="ابحث حسب نوع الخدمة">
+                    <button class="search-btn" onclick="filterProviders()">
                         <i class="fas fa-search"></i>
                     </button>
                 </div>
@@ -281,17 +257,6 @@
             </div>
         </div>
     </div>
-
-    <footer role="contentinfo" class="site-footer hidden">
-        <div class="container">
-            <div class="footer-links">
-                <a href="/privacy">سياسة الخصوصية</a>
-                <a href="/terms">شروط الاستخدام</a>
-                <a href="/contact">اتصل بنا</a>
-            </div>
-            <p class="copyright">&copy; 2023 طابور أونلاين. جميع الحقوق محفوظة.</p>
-        </div>
-    </footer>
 
     <script src="app.js" type="module"></script>
 </body>
