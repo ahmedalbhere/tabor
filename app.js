@@ -7,7 +7,7 @@ import {
   push, 
   onValue, 
   remove, 
-  update, 
+  update,
   get,
   off
 } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-database.js";
@@ -257,7 +257,9 @@ async function providerSignup() {
       status: 'open',
       queue: {},
       averageRating: 0,
-      ratingCount: 0
+      ratingCount: 0,
+      verified: false,
+      banned: false // إضافة حالة الحظر الافتراضية
     });
     
     state.currentUser = {
@@ -331,6 +333,13 @@ async function providerLogin() {
     if (snapshot.exists()) {
       const providerData = snapshot.val();
       
+      // التحقق من حالة الحظر قبل السماح بتسجيل الدخول
+      if (providerData.banned) {
+        utils.showError(error, 'هذا الحساب محظور ولا يمكن الدخول إليه');
+        await signOut(auth);
+        return;
+      }
+      
       state.currentUser = {
         id: userCredential.user.uid,
         name: providerData.name,
@@ -338,7 +347,8 @@ async function providerLogin() {
         city: providerData.city,
         serviceType: providerData.serviceType,
         location: providerData.location,
-        type: 'provider'
+        type: 'provider',
+        verified: providerData.verified || false
       };
       
       elements.provider.avatar.textContent = providerData.name.charAt(0);
@@ -416,7 +426,9 @@ function renderProvidersList() {
     return;
   }
   
+  // تصفية الحسابات المحظورة قبل الفرز
   const sortedProviders = Object.entries(state.serviceProviders)
+    .filter(([id, provider]) => !provider.banned) // هذه هي الإضافة المهمة
     .sort(([, a], [, b]) => (b.averageRating || 0) - (a.averageRating || 0));
   
   sortedProviders.forEach(([id, provider], index) => {
@@ -426,6 +438,10 @@ function renderProvidersList() {
     const isSamePhone = provider.queue && Object.values(provider.queue).some(booking => 
       booking.clientPhone === state.currentUser?.phone
     );
+    
+    // علامة التوثيق
+    const verifiedBadge = provider.verified ? 
+      '<span class="verified-badge"><i class="fas fa-check-circle"></i> موثق</span>' : '';
     
     const providerCard = document.createElement('div');
     providerCard.className = `provider-card ${isTopRated ? 'top-rated' : ''}`;
@@ -444,7 +460,7 @@ function renderProvidersList() {
       <div class="provider-info">
         <div class="provider-header">
           <div class="provider-avatar">${provider.name.charAt(0)}</div>
-          <div class="provider-name">${provider.name}</div>
+          <div class="provider-name">${provider.name} ${verifiedBadge}</div>
         </div>
         <div class="provider-status ${statusClass}">${statusText}</div>
         ${ratingStars}
@@ -530,7 +546,7 @@ async function checkExistingBooking() {
   }
   
   for (const [providerId, provider] of Object.entries(state.serviceProviders)) {
-    if (provider.queue) {
+    if (provider.queue && !provider.banned) { // إضافة شرط !provider.banned
       for (const [bookingId, booking] of Object.entries(provider.queue)) {
         if (booking.clientId === state.currentUser.id || booking.clientPhone === state.currentUser.phone) {
           const bookingData = {
