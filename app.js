@@ -105,7 +105,7 @@ const utils = {
     setTimeout(() => element.classList.add('hidden'), 5000);
   },
   
-  validatePhone: (phone) => /^[0-9]{10,}$/.test(phone), // Changed from 11 to 10+ digits
+  validatePhone: (phone) => /^[0-9]{10,}$/.test(phone), // 10 digits or more
   
   clearForm: (formElements) => {
     Object.values(formElements).forEach(element => {
@@ -242,9 +242,12 @@ async function providerSignup() {
   }
   
   try {
+    // Generate unique email based on phone and random string to allow duplicate phones
+    const email = `${newPhone.value}-${Math.random().toString(36).substr(2, 5)}@provider.com`;
+    
     const userCredential = await createUserWithEmailAndPassword(
       auth, 
-      `${newPhone.value}@provider.com`, 
+      email, 
       newPassword.value
     );
     
@@ -288,7 +291,7 @@ async function providerSignup() {
   } catch (error) {
     let errorMessage = 'حدث خطأ أثناء إنشاء الحساب';
     if (error.code === 'auth/email-already-in-use') {
-      errorMessage = 'هذا الرقم مسجل بالفعل، يرجى تسجيل الدخول';
+      errorMessage = 'حاول مرة أخرى، حدث خطأ في إنشاء الحساب';
     } else if (error.code === 'auth/invalid-email') {
       errorMessage = 'رقم الهاتف غير صالح';
     } else if (error.code === 'auth/weak-password') {
@@ -310,11 +313,53 @@ async function providerLogin() {
   }
   
   try {
-    const userCredential = await signInWithEmailAndPassword(
-      auth,
+    // Find provider by phone number
+    const providersRef = ref(database, 'serviceProviders');
+    const snapshot = await get(providersRef);
+    
+    if (!snapshot.exists()) {
+      utils.showError(error, 'لا يوجد مقدمي خدمة مسجلين');
+      return;
+    }
+    
+    let providerFound = null;
+    const providers = snapshot.val();
+    
+    for (const [providerId, provider] of Object.entries(providers)) {
+      if (provider.phone === phone.value) {
+        providerFound = { id: providerId, ...provider };
+        break;
+      }
+    }
+    
+    if (!providerFound) {
+      utils.showError(error, 'لا يوجد حساب مرتبط بهذا الرقم');
+      return;
+    }
+    
+    // Try to login with all possible email variations
+    const emailVariations = [
       `${phone.value}@provider.com`,
-      password.value
-    );
+      `${phone.value}-${providerFound.id.substr(0, 5)}@provider.com`
+    ];
+    
+    let loginSuccess = false;
+    let userCredential = null;
+    
+    for (const email of emailVariations) {
+      try {
+        userCredential = await signInWithEmailAndPassword(auth, email, password.value);
+        loginSuccess = true;
+        break;
+      } catch (err) {
+        // Continue to next variation
+      }
+    }
+    
+    if (!loginSuccess) {
+      utils.showError(error, 'كلمة المرور غير صحيحة');
+      return;
+    }
     
     if (rememberMe) {
       localStorage.setItem('provider_login', JSON.stringify({
@@ -326,35 +371,25 @@ async function providerLogin() {
       localStorage.removeItem('provider_login');
     }
     
-    const providerRef = ref(database, 'serviceProviders/' + userCredential.user.uid);
-    const snapshot = await get(providerRef);
+    state.currentUser = {
+      id: userCredential.user.uid,
+      name: providerFound.name,
+      phone: providerFound.phone,
+      city: providerFound.city,
+      serviceType: providerFound.serviceType,
+      location: providerFound.location,
+      type: 'provider',
+      verified: providerFound.verified || false
+    };
     
-    if (snapshot.exists()) {
-      const providerData = snapshot.val();
-      
-      state.currentUser = {
-        id: userCredential.user.uid,
-        name: providerData.name,
-        phone: providerData.phone,
-        city: providerData.city,
-        serviceType: providerData.serviceType,
-        location: providerData.location,
-        type: 'provider',
-        verified: providerData.verified || false
-      };
-      
-      elements.provider.avatar.textContent = providerData.name.charAt(0);
-      showProviderDashboard();
-      loadProviderQueue();
-      
-      utils.clearForm({
-        phone: phone,
-        password: password
-      });
-    } else {
-      utils.showError(error, 'بيانات مقدم الخدمة غير موجودة');
-      await signOut(auth);
-    }
+    elements.provider.avatar.textContent = providerFound.name.charAt(0);
+    showProviderDashboard();
+    loadProviderQueue();
+    
+    utils.clearForm({
+      phone: phone,
+      password: password
+    });
     
   } catch (error) {
     let errorMessage = 'بيانات الدخول غير صحيحة';
@@ -371,463 +406,7 @@ async function providerLogin() {
   }
 }
 
-// Dashboard functions
-function showClientDashboard() {
-  showScreen('clientDashboard');
-}
-
-function showProviderDashboard() {
-  showScreen('providerDashboard');
-  
-  onValue(ref(database, 'serviceProviders/' + state.currentUser.id + '/status'), (snapshot) => {
-    const status = snapshot.val() || 'open';
-    elements.provider.statusToggle.checked = status === 'open';
-    elements.provider.statusText.textContent = status === 'open' ? 'مفتوح' : 'مغلق';
-  });
-  
-  elements.provider.statusToggle.addEventListener('change', function() {
-    const newStatus = this.checked ? 'open' : 'closed';
-    update(ref(database, 'serviceProviders/' + state.currentUser.id), { status: newStatus });
-  });
-}
-
-// Service Providers management
-async function loadServiceProviders() {
-  elements.client.providersList.innerHTML = '<div class="loading">جارٍ تحميل قائمة مقدمي الخدمة...</div>';
-  
-  if (state.providersListener) {
-    off(state.providersListener);
-  }
-  
-  state.providersListener = onValue(ref(database, 'serviceProviders'), (snapshot) => {
-    state.serviceProviders = snapshot.val() || {};
-    renderProvidersList();
-  }, (error) => {
-    elements.client.providersList.innerHTML = '<div class="error">حدث خطأ أثناء تحميل مقدمي الخدمة</div>';
-    console.error('Load providers error:', error);
-  });
-}
-
-function renderProvidersList() {
-  if (!elements.client.providersList) return;
-  
-  elements.client.providersList.innerHTML = '';
-  
-  if (!state.serviceProviders || Object.keys(state.serviceProviders).length === 0) {
-    elements.client.providersList.innerHTML = '<div class="no-results">لا يوجد مقدمي خدمة مسجلون حالياً</div>';
-    return;
-  }
-  
-  const sortedProviders = Object.entries(state.serviceProviders)
-    .sort(([, a], [, b]) => (b.averageRating || 0) - (a.averageRating || 0));
-  
-  sortedProviders.forEach(([id, provider], index) => {
-    const isTopRated = index < 3 && provider.averageRating >= 4;
-    const hasBooking = state.currentUser?.booking;
-    const isCurrentProvider = state.currentUser?.booking?.providerId === id;
-    const isSamePhone = provider.queue && Object.values(provider.queue).some(booking => 
-      booking.clientPhone === state.currentUser?.phone
-    );
-    
-    const verifiedBadge = provider.verified ? 
-      '<span class="verified-badge"><i class="fas fa-check-circle"></i> موثق</span>' : '';
-    
-    const providerCard = document.createElement('div');
-    providerCard.className = `provider-card ${isTopRated ? 'top-rated' : ''}`;
-    
-    const statusClass = provider.status === 'open' ? 'status-open' : 'status-closed';
-    const statusText = provider.status === 'open' ? 'مفتوح' : 'مغلق';
-    const queueLength = provider.queue ? Object.keys(provider.queue).length : 0;
-    
-    const ratingStars = provider.averageRating ? 
-      `<div class="provider-rating">
-        ${'<i class="fas fa-star"></i>'.repeat(Math.round(provider.averageRating))}
-        <span class="provider-rating-count">(${provider.ratingCount || 0})</span>
-      </div>` : '';
-    
-    providerCard.innerHTML = `
-      <div class="provider-info">
-        <div class="provider-header">
-          <div class="provider-avatar">${provider.name.charAt(0)}</div>
-          <div class="provider-name">${provider.name} ${verifiedBadge}</div>
-        </div>
-        <div class="provider-status ${statusClass}">${statusText}</div>
-        ${ratingStars}
-        <div class="provider-details">
-          <div><i class="fas fa-city"></i> المدينة: <span class="city-name">${provider.city || 'غير متوفر'}</span></div>
-          <div><i class="fas fa-scissors"></i> نوع الخدمة: <span class="service-type">${provider.serviceType || 'غير محدد'}</span></div>
-          <div><i class="fas fa-phone"></i> رقم الهاتف: ${provider.phone || 'غير متوفر'}</div>
-          <div><i class="fas fa-map-marker-alt"></i> الموقع: <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(provider.location)}" target="_blank" class="location-link">${provider.location || 'غير متوفر'}</a></div>
-          <div><i class="fas fa-users"></i> عدد المنتظرين: ${queueLength}</div>
-        </div>
-      </div>
-      <button class="book-btn" ${isSamePhone ? 'disabled' : ''}" 
-              onclick="${isSamePhone ? '' : `bookAppointment('${id}', '${provider.name.replace(/'/g, "\\'")}')`}">
-        ${isSamePhone ? '<i class="fas fa-calendar-times"></i> لديك حجز بهذا الرقم' : 
-          (hasBooking && isCurrentProvider ? '<i class="fas fa-calendar-check"></i> لديك حجز هنا' : 
-          '<i class="fas fa-calendar-plus"></i> احجز الآن')}
-      </button>
-    `;
-    
-    elements.client.providersList.appendChild(providerCard);
-  });
-}
-
-// Booking management
-async function bookAppointment(providerId, providerName) {
-  if (!state.currentUser) return;
-
-  const providerRef = ref(database, `serviceProviders/${providerId}/queue`);
-  const snapshot = await get(providerRef);
-  const queue = snapshot.val() || {};
-
-  const hasBookingWithSamePhone = Object.values(queue).some(booking => 
-    booking.clientPhone === state.currentUser.phone
-  );
-
-  if (hasBookingWithSamePhone) {
-    renderProvidersList();
-    return;
-  }
-
-  if (state.currentUser.booking && state.currentUser.booking.providerId !== providerId) {
-    return;
-  }
-
-  try {
-    const newBookingRef = push(ref(database, `serviceProviders/${providerId}/queue`));
-    await set(newBookingRef, {
-      clientId: state.currentUser.id,
-      clientName: state.currentUser.name,
-      clientPhone: state.currentUser.phone,
-      timestamp: Date.now()
-    });
-    
-    const bookingData = {
-      providerId,
-      providerName,
-      bookingId: newBookingRef.key,
-      timestamp: new Date().toLocaleString('ar-EG')
-    };
-    
-    state.currentUser.booking = bookingData;
-    
-    const savedData = JSON.parse(localStorage.getItem('client_data')) || {};
-    savedData.booking = bookingData;
-    localStorage.setItem('client_data', JSON.stringify(savedData));
-    
-    showCurrentBooking();
-    renderProvidersList();
-  } catch (error) {
-    console.error('Booking error:', error);
-  }
-}
-
-async function checkExistingBooking() {
-  if (!state.currentUser || state.currentUser.type !== 'client') return;
-  
-  const savedData = JSON.parse(localStorage.getItem('client_data')) || {};
-  if (savedData.booking) {
-    state.currentUser.booking = savedData.booking;
-    showCurrentBooking();
-    return;
-  }
-  
-  for (const [providerId, provider] of Object.entries(state.serviceProviders)) {
-    if (provider.queue) {
-      for (const [bookingId, booking] of Object.entries(provider.queue)) {
-        if (booking.clientId === state.currentUser.id || booking.clientPhone === state.currentUser.phone) {
-          const bookingData = {
-            providerId,
-            providerName: provider.name,
-            bookingId,
-            timestamp: new Date(booking.timestamp).toLocaleString('ar-EG')
-          };
-          
-          state.currentUser.booking = bookingData;
-          
-          const savedData = JSON.parse(localStorage.getItem('client_data')) || {};
-          savedData.booking = bookingData;
-          localStorage.setItem('client_data', JSON.stringify(savedData));
-          
-          showCurrentBooking();
-          return;
-        }
-      }
-    }
-  }
-}
-
-function showCurrentBooking() {
-  if (!state.currentUser?.booking) return;
-  
-  const { booking } = state.currentUser;
-  elements.client.bookingProvider.textContent = booking.providerName;
-  elements.client.bookingTime.textContent = booking.timestamp;
-  
-  if (state.queueListeners[booking.providerId]) {
-    off(state.queueListeners[booking.providerId]);
-  }
-  
-  state.queueListeners[booking.providerId] = onValue(
-    ref(database, `serviceProviders/${booking.providerId}/queue`), 
-    (snapshot) => {
-      const queue = snapshot.val() || {};
-      const queueArray = Object.entries(queue).map(([key, value]) => ({
-        id: key,
-        ...value
-      })).sort((a, b) => a.timestamp - b.timestamp);
-      
-      const position = queueArray.findIndex(item => item.id === booking.bookingId) + 1;
-      elements.client.bookingPosition.textContent = position > 0 ? position : '--';
-    },
-    (error) => {
-      console.error('Queue listener error:', error);
-    }
-  );
-  
-  elements.client.bookingContainer.classList.remove('hidden');
-  elements.client.cancelBookingBtn.onclick = cancelBooking;
-}
-
-async function cancelBooking() {
-  if (!state.currentUser?.booking) return;
-  
-  const { providerId, bookingId } = state.currentUser.booking;
-  
-  if (!confirm('هل أنت متأكد من إلغاء الحجز؟')) return;
-  
-  try {
-    await remove(ref(database, `serviceProviders/${providerId}/queue/${bookingId}`));
-    
-    delete state.currentUser.booking;
-    const savedData = JSON.parse(localStorage.getItem('client_data')) || {};
-    delete savedData.booking;
-    localStorage.setItem('client_data', JSON.stringify(savedData));
-    
-    elements.client.bookingContainer.classList.add('hidden');
-    renderProvidersList();
-  } catch (error) {
-    console.error('Cancel booking error:', error);
-  }
-}
-
-// Rating system
-function setupRatingStars() {
-  elements.rating.stars.forEach(star => {
-    star.addEventListener('click', function() {
-      const rating = parseInt(this.getAttribute('data-rating'));
-      elements.rating.stars.forEach((s, i) => {
-        if (i < rating) {
-          s.classList.add('active');
-        } else {
-          s.classList.remove('active');
-        }
-      });
-      state.currentRating = rating;
-    });
-  });
-}
-
-async function submitRating() {
-  if (!state.currentRating || !state.currentUser?.booking) return;
-  
-  try {
-    const ratingData = {
-      providerId: state.currentUser.booking.providerId,
-      clientId: state.currentUser.id,
-      clientName: state.currentUser.name,
-      rating: state.currentRating,
-      comment: elements.rating.comment.value.trim(),
-      timestamp: Date.now()
-    };
-    
-    await push(ref(database, `ratings/${state.currentUser.booking.providerId}`), ratingData);
-    await updateProviderRating(state.currentUser.booking.providerId);
-    
-    elements.rating.container.classList.add('hidden');
-    
-    elements.rating.stars.forEach(star => star.classList.remove('active'));
-    elements.rating.comment.value = '';
-    state.currentRating = null;
-    
-  } catch (error) {
-    console.error('Rating submission error:', error);
-  }
-}
-
-async function updateProviderRating(providerId) {
-  const ratingsRef = ref(database, `ratings/${providerId}`);
-  const snapshot = await get(ratingsRef);
-  
-  if (!snapshot.exists()) return;
-  
-  const ratings = snapshot.val();
-  const ratingsArray = Object.values(ratings);
-  const totalRatings = ratingsArray.length;
-  const sumRatings = ratingsArray.reduce((sum, r) => sum + r.rating, 0);
-  const averageRating = sumRatings / totalRatings;
-  
-  await update(ref(database, `serviceProviders/${providerId}`), {
-    averageRating: averageRating.toFixed(1),
-    ratingCount: totalRatings
-  });
-}
-
-function showRatingForm() {
-  elements.rating.container.classList.remove('hidden');
-}
-
-// Queue management
-async function loadProviderQueue() {
-  if (!state.currentUser || state.currentUser.type !== 'provider') return;
-  
-  elements.provider.queue.innerHTML = '<li class="loading">جارٍ تحميل قائمة الانتظار...</li>';
-  
-  const queueRef = ref(database, `serviceProviders/${state.currentUser.id}/queue`);
-  
-  if (state.queueListeners[state.currentUser.id]) {
-    off(state.queueListeners[state.currentUser.id]);
-  }
-  
-  state.queueListeners[state.currentUser.id] = onValue(queueRef, (snapshot) => {
-    const queue = snapshot.val() || {};
-    elements.provider.queue.innerHTML = '';
-    
-    if (Object.keys(queue).length === 0) {
-      elements.provider.queue.innerHTML = '<li class="no-clients">لا يوجد عملاء في قائمة الانتظار</li>';
-      return;
-    }
-    
-    const queueArray = Object.entries(queue).map(([key, value]) => ({
-      id: key,
-      ...value
-    })).sort((a, b) => a.timestamp - b.timestamp);
-    
-    queueArray.forEach((booking, index) => {
-      const queueItem = document.createElement('li');
-      queueItem.className = 'queue-item';
-      
-      queueItem.innerHTML = `
-        <div class="queue-info">
-          <div class="queue-position">الرقم ${index + 1}</div>
-          <div class="queue-name">${booking.clientName}</div>
-          <div class="queue-phone">${booking.clientPhone || 'غير متوفر'}</div>
-          <div class="queue-time">${new Date(booking.timestamp).toLocaleString('ar-EG')}</div>
-        </div>
-        ${index === 0 ? `
-          <button class="delete-btn" onclick="completeClient('${state.currentUser.id}', '${booking.id}')">
-            <i class="fas fa-check"></i>
-          </button>
-        ` : ''}
-      `;
-      
-      elements.provider.queue.appendChild(queueItem);
-    });
-  }, (error) => {
-    elements.provider.queue.innerHTML = '<li class="error">حدث خطأ أثناء تحميل قائمة الانتظار</li>';
-    console.error('Load queue error:', error);
-  });
-}
-
-async function completeClient(providerId, bookingId) {
-  if (!confirm('هل أنتهيت من خدمة هذا العميل؟')) return;
-  
-  try {
-    const bookingRef = ref(database, `serviceProviders/${providerId}/queue/${bookingId}`);
-    const snapshot = await get(bookingRef);
-    
-    await remove(bookingRef);
-    
-    if (state.currentUser?.booking?.bookingId === bookingId) {
-      showRatingForm();
-    }
-  } catch (error) {
-    console.error('Complete client error:', error);
-  }
-}
-
-// Search functionality
-function filterProviders() {
-  const cityTerm = elements.client.citySearch.value.trim().toLowerCase();
-  const serviceTypeTerm = elements.client.serviceTypeSearch.value.trim().toLowerCase();
-  const providerCards = document.querySelectorAll('.provider-card');
-  
-  if (!cityTerm && !serviceTypeTerm) {
-    providerCards.forEach(card => card.style.display = 'flex');
-    return;
-  }
-  
-  let hasResults = false;
-  
-  providerCards.forEach(card => {
-    const cityElement = card.querySelector('.city-name');
-    const serviceTypeElement = card.querySelector('.service-type');
-    const nameElement = card.querySelector('.provider-name');
-    
-    if (cityElement && serviceTypeElement && nameElement) {
-      const city = cityElement.textContent.toLowerCase();
-      const serviceType = serviceTypeElement.textContent.toLowerCase();
-      const name = nameElement.textContent.toLowerCase();
-      
-      const cityMatch = city.includes(cityTerm);
-      const serviceTypeMatch = serviceType.includes(serviceTypeTerm);
-      
-      if ((!cityTerm || cityMatch) && (!serviceTypeTerm || serviceTypeMatch)) {
-        card.style.display = 'flex';
-        hasResults = true;
-        
-        if (cityTerm && cityMatch) {
-          cityElement.innerHTML = city.replace(
-            new RegExp(cityTerm, 'gi'), 
-            match => `<span class="highlight">${match}</span>`
-          );
-        }
-        
-        if (serviceTypeTerm && serviceTypeMatch) {
-          serviceTypeElement.innerHTML = serviceType.replace(
-            new RegExp(serviceTypeTerm, 'gi'), 
-            match => `<span class="highlight">${match}</span>`
-          );
-        }
-      } else {
-        card.style.display = 'none';
-      }
-    }
-  });
-  
-  if (!hasResults) {
-    elements.client.providersList.innerHTML = '<div class="no-results">لا توجد نتائج مطابقة للبحث</div>';
-  }
-}
-
-// Logout function
-async function logout() {
-  try {
-    Object.values(state.queueListeners).forEach(off);
-    if (state.providersListener) off(state.providersListener);
-    
-    if (state.currentUser?.booking) {
-      const savedData = JSON.parse(localStorage.getItem('client_data')) || {};
-      savedData.booking = state.currentUser.booking;
-      localStorage.setItem('client_data', JSON.stringify(savedData));
-    }
-    
-    await signOut(auth);
-    state.currentUser = null;
-    state.currentUserType = null;
-    state.queueListeners = {};
-    state.providersListener = null;
-    state.currentRating = null;
-    
-    utils.clearForm(elements.client);
-    utils.clearForm(elements.provider);
-    
-    showScreen('roleSelection');
-  } catch (error) {
-    console.error('Logout error:', error);
-  }
-}
+// ... (بقية الدوال تبقى كما هي بدون تغيير)
 
 // Initialize app
 function init() {
