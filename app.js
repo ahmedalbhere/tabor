@@ -105,7 +105,7 @@ const utils = {
     setTimeout(() => element.classList.add('hidden'), 5000);
   },
   
-  validatePhone: (phone) => /^[0-9]{11}$/.test(phone),
+  validatePhone: (phone) => /^[0-9]{10,}$/.test(phone), // Changed from 11 to 10+ digits
   
   clearForm: (formElements) => {
     Object.values(formElements).forEach(element => {
@@ -179,7 +179,7 @@ async function clientLogin() {
   }
   
   if (!phone || !utils.validatePhone(phone)) {
-    utils.showError(elements.client.error, 'الرجاء إدخال رقم هاتف صحيح (11 رقمًا بالضبط)');
+    utils.showError(elements.client.error, 'الرجاء إدخال رقم هاتف صحيح (10 أرقام على الأقل)');
     return;
   }
   
@@ -227,7 +227,7 @@ async function providerSignup() {
   }
   
   if (!utils.validatePhone(newPhone.value)) {
-    utils.showError(error, 'رقم الهاتف يجب أن يكون 11 رقمًا بالضبط');
+    utils.showError(error, 'رقم الهاتف يجب أن يكون 10 أرقام على الأقل');
     return;
   }
   
@@ -258,8 +258,7 @@ async function providerSignup() {
       queue: {},
       averageRating: 0,
       ratingCount: 0,
-      verified: false,
-      banned: false // إضافة حالة الحظر الافتراضية
+      verified: false
     });
     
     state.currentUser = {
@@ -332,13 +331,6 @@ async function providerLogin() {
     
     if (snapshot.exists()) {
       const providerData = snapshot.val();
-      
-      // التحقق من حالة الحظر قبل السماح بتسجيل الدخول
-      if (providerData.banned) {
-        utils.showError(error, 'هذا الحساب محظور ولا يمكن الدخول إليه');
-        await signOut(auth);
-        return;
-      }
       
       state.currentUser = {
         id: userCredential.user.uid,
@@ -426,9 +418,7 @@ function renderProvidersList() {
     return;
   }
   
-  // تصفية الحسابات المحظورة قبل الفرز
   const sortedProviders = Object.entries(state.serviceProviders)
-    .filter(([id, provider]) => !provider.banned) // هذه هي الإضافة المهمة
     .sort(([, a], [, b]) => (b.averageRating || 0) - (a.averageRating || 0));
   
   sortedProviders.forEach(([id, provider], index) => {
@@ -439,7 +429,6 @@ function renderProvidersList() {
       booking.clientPhone === state.currentUser?.phone
     );
     
-    // علامة التوثيق
     const verifiedBadge = provider.verified ? 
       '<span class="verified-badge"><i class="fas fa-check-circle"></i> موثق</span>' : '';
     
@@ -488,7 +477,6 @@ function renderProvidersList() {
 async function bookAppointment(providerId, providerName) {
   if (!state.currentUser) return;
 
-  // التحقق من وجود حجز بنفس رقم الهاتف
   const providerRef = ref(database, `serviceProviders/${providerId}/queue`);
   const snapshot = await get(providerRef);
   const queue = snapshot.val() || {};
@@ -546,7 +534,7 @@ async function checkExistingBooking() {
   }
   
   for (const [providerId, provider] of Object.entries(state.serviceProviders)) {
-    if (provider.queue && !provider.banned) { // إضافة شرط !provider.banned
+    if (provider.queue) {
       for (const [bookingId, booking] of Object.entries(provider.queue)) {
         if (booking.clientId === state.currentUser.id || booking.clientPhone === state.currentUser.phone) {
           const bookingData = {
