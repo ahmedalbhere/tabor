@@ -7,7 +7,7 @@ import {
   push, 
   onValue, 
   remove, 
-  update,
+  update, 
   get,
   off
 } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-database.js";
@@ -140,6 +140,28 @@ const utils = {
     dashboards.forEach(dashboard => {
       dashboard.style.minHeight = 'calc(var(--vh, 1vh) * 100)';
     });
+  },
+  
+  countProvidersWithPhone: async (phone) => {
+    try {
+      const providersRef = ref(database, 'serviceProviders');
+      const snapshot = await get(providersRef);
+      let count = 0;
+      
+      if (snapshot.exists()) {
+        const providers = snapshot.val();
+        Object.values(providers).forEach(provider => {
+          if (provider.phone === phone) {
+            count++;
+          }
+        });
+      }
+      
+      return count;
+    } catch (error) {
+      console.error('Error counting providers:', error);
+      return 0;
+    }
   }
 };
 
@@ -178,34 +200,29 @@ async function clientLogin() {
     return;
   }
   
-tingBooking();
-    async function providerSignup() {
-  // ... الكود الحالي
-  
-  if (!utils.validatePhone(newPhone.value)) {
-    utils.showError(error, 'رقم الهاتف يجب أن يكون 11 رقمًا بالضبط');
+  if (!phone || !utils.validatePhone(phone)) {
+    utils.showError(elements.client.error, 'الرجاء إدخال رقم هاتف صحيح (11 رقمًا بالضبط)');
     return;
   }
   
-  // التحقق من عدد الحسابات بنفس رقم الهاتف
-  const providersRef = ref(database, 'serviceProviders');
-  const snapshot = await get(providersRef);
-  const providers = snapshot.val() || {};
-  
-  let phoneCount = 0;
-  Object.values(providers).forEach(provider => {
-    if (provider.phone === newPhone.value) {
-      phoneCount++;
-    }
-  });
-  
-  if (phoneCount >= 3) {
-    utils.showError(error, 'لا يمكن إنشاء أكثر من 3 حسابات بنفس رقم الهاتف');
-    return;
-  }
-  
-  // باقي الكود كما هو...
-}
+  try {
+    const savedData = JSON.parse(localStorage.getItem('client_data')) || {};
+    const clientId = savedData.clientId || utils.generateId();
+    
+    state.currentUser = {
+      id: clientId,
+      name,
+      phone,
+      type: 'client'
+    };
+    state.currentUserType = 'client';
+    
+    elements.client.avatar.textContent = name.charAt(0);
+    showClientDashboard();
+    await loadServiceProviders();
+    
+    await checkExistingBooking();
+    
     if (rememberMe) {
       localStorage.setItem('client_data', JSON.stringify({ 
         name, 
@@ -246,10 +263,20 @@ async function providerSignup() {
     return;
   }
   
+  // التحقق من عدد الحسابات المسجلة بنفس الرقم
+  const phoneCount = await utils.countProvidersWithPhone(newPhone.value);
+  if (phoneCount >= 3) {
+    utils.showError(error, 'لا يمكن إنشاء أكثر من 3 حسابات بنفس رقم الهاتف');
+    return;
+  }
+  
   try {
+    // إنشاء حساب فريد باستخدام البريد الإلكتروني
+    const email = `${newPhone.value}-${utils.generateId()}@provider.com`;
+    
     const userCredential = await createUserWithEmailAndPassword(
       auth, 
-      `${newPhone.value}@provider.com`, 
+      email, 
       newPassword.value
     );
     
@@ -262,8 +289,7 @@ async function providerSignup() {
       status: 'open',
       queue: {},
       averageRating: 0,
-      ratingCount: 0,
-      verified: false // Default value for new providers
+      ratingCount: 0
     });
     
     state.currentUser = {
@@ -293,9 +319,9 @@ async function providerSignup() {
   } catch (error) {
     let errorMessage = 'حدث خطأ أثناء إنشاء الحساب';
     if (error.code === 'auth/email-already-in-use') {
-      errorMessage = 'هذا الرقم مسجل بالفعل، يرجى تسجيل الدخول';
+      errorMessage = 'حاول استخدام بريد إلكتروني مختلف';
     } else if (error.code === 'auth/invalid-email') {
-      errorMessage = 'رقم الهاتف غير صالح';
+      errorMessage = 'البريد الإلكتروني غير صالح';
     } else if (error.code === 'auth/weak-password') {
       errorMessage = 'كلمة المرور ضعيفة جداً';
     }
@@ -315,50 +341,63 @@ async function providerLogin() {
   }
   
   try {
-    const userCredential = await signInWithEmailAndPassword(
-      auth,
-      `${phone.value}@provider.com`,
-      password.value
-    );
-    
-    if (rememberMe) {
-      localStorage.setItem('provider_login', JSON.stringify({
-        phone: phone.value,
-        password: password.value,
-        remember: true
-      }));
-    } else {
-      localStorage.removeItem('provider_login');
-    }
-    
-    const providerRef = ref(database, 'serviceProviders/' + userCredential.user.uid);
-    const snapshot = await get(providerRef);
+    // البحث عن الحساب المناسب
+    const providersRef = ref(database, 'serviceProviders');
+    const snapshot = await get(providersRef);
+    let providerFound = false;
     
     if (snapshot.exists()) {
-      const providerData = snapshot.val();
-      
-      state.currentUser = {
-        id: userCredential.user.uid,
-        name: providerData.name,
-        phone: providerData.phone,
-        city: providerData.city,
-        serviceType: providerData.serviceType,
-        location: providerData.location,
-        type: 'provider',
-        verified: providerData.verified || false
-      };
-      
-      elements.provider.avatar.textContent = providerData.name.charAt(0);
-      showProviderDashboard();
-      loadProviderQueue();
-      
-      utils.clearForm({
-        phone: phone,
-        password: password
-      });
-    } else {
-      utils.showError(error, 'بيانات مقدم الخدمة غير موجودة');
-      await signOut(auth);
+      const providers = snapshot.val();
+      for (const [providerId, provider] of Object.entries(providers)) {
+        if (provider.phone === phone.value) {
+          try {
+            const userCredential = await signInWithEmailAndPassword(
+              auth,
+              `${phone.value}@provider.com`,
+              password.value
+            );
+            
+            providerFound = true;
+            
+            if (rememberMe) {
+              localStorage.setItem('provider_login', JSON.stringify({
+                phone: phone.value,
+                password: password.value,
+                remember: true
+              }));
+            } else {
+              localStorage.removeItem('provider_login');
+            }
+            
+            state.currentUser = {
+              id: providerId,
+              name: provider.name,
+              phone: provider.phone,
+              city: provider.city,
+              serviceType: provider.serviceType,
+              location: provider.location,
+              type: 'provider'
+            };
+            
+            elements.provider.avatar.textContent = provider.name.charAt(0);
+            showProviderDashboard();
+            loadProviderQueue();
+            
+            utils.clearForm({
+              phone: phone,
+              password: password
+            });
+            
+            break;
+          } catch (loginError) {
+            continue; // جرب الحساب التالي إذا فشل تسجيل الدخول
+          }
+        }
+      }
+    }
+    
+    if (!providerFound) {
+      utils.showError(error, 'بيانات الدخول غير صحيحة');
     }
     
   } catch (error) {
@@ -434,10 +473,6 @@ function renderProvidersList() {
       booking.clientPhone === state.currentUser?.phone
     );
     
-    // علامة التوثيق
-    const verifiedBadge = provider.verified ? 
-      '<span class="verified-badge"><i class="fas fa-check-circle"></i> موثق</span>' : '';
-    
     const providerCard = document.createElement('div');
     providerCard.className = `provider-card ${isTopRated ? 'top-rated' : ''}`;
     
@@ -455,7 +490,7 @@ function renderProvidersList() {
       <div class="provider-info">
         <div class="provider-header">
           <div class="provider-avatar">${provider.name.charAt(0)}</div>
-          <div class="provider-name">${provider.name} ${verifiedBadge}</div>
+          <div class="provider-name">${provider.name}</div>
         </div>
         <div class="provider-status ${statusClass}">${statusText}</div>
         ${ratingStars}
