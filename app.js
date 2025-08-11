@@ -178,29 +178,34 @@ async function clientLogin() {
     return;
   }
   
-  if (!phone || !utils.validatePhone(phone)) {
-    utils.showError(elements.client.error, 'الرجاء إدخال رقم هاتف صحيح (11 رقمًا بالضبط)');
+tingBooking();
+    async function providerSignup() {
+  // ... الكود الحالي
+  
+  if (!utils.validatePhone(newPhone.value)) {
+    utils.showError(error, 'رقم الهاتف يجب أن يكون 11 رقمًا بالضبط');
     return;
   }
   
-  try {
-    const savedData = JSON.parse(localStorage.getItem('client_data')) || {};
-    const clientId = savedData.clientId || utils.generateId();
-    
-    state.currentUser = {
-      id: clientId,
-      name,
-      phone,
-      type: 'client'
-    };
-    state.currentUserType = 'client';
-    
-    elements.client.avatar.textContent = name.charAt(0);
-    showClientDashboard();
-    await loadServiceProviders();
-    
-    await checkExistingBooking();
-    
+  // التحقق من عدد الحسابات بنفس رقم الهاتف
+  const providersRef = ref(database, 'serviceProviders');
+  const snapshot = await get(providersRef);
+  const providers = snapshot.val() || {};
+  
+  let phoneCount = 0;
+  Object.values(providers).forEach(provider => {
+    if (provider.phone === newPhone.value) {
+      phoneCount++;
+    }
+  });
+  
+  if (phoneCount >= 3) {
+    utils.showError(error, 'لا يمكن إنشاء أكثر من 3 حسابات بنفس رقم الهاتف');
+    return;
+  }
+  
+  // باقي الكود كما هو...
+}
     if (rememberMe) {
       localStorage.setItem('client_data', JSON.stringify({ 
         name, 
